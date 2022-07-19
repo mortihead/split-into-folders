@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -49,34 +50,35 @@ public class FileHelper {
         }
     }
 
-    public void processFile(Path x) {
-        log.info(x.toString());
+    private void processFile(String counterStr, Path x) {
+        log.log(Level.INFO, "{0} {1}", new Object[]{counterStr, x.toString()});
         SimpleDateFormat format = new SimpleDateFormat(DATENAMETEMPLATE);
         SimpleDateFormat folderFormat = new SimpleDateFormat(FOLDERTEMPLATE);
         Pattern p = Pattern.compile("\\d\\d\\d\\d\\d\\d\\d\\d_");
         Matcher m = p.matcher(x.getFileName().toString());
-        Date tempDate = null;
+        Date tempDate;
         if (m.find()) {
             try {
                 tempDate = format.parse(m.group());
-                log.info("filename ok");
                 String targetFolderName = targetFolder + "/" + folderFormat.format(tempDate);
-                log.info("Check " + targetFolderName);
-                if (Files.isDirectory(Paths.get(targetFolderName))) {
-                    log.info("Folder exist.");
-                } else {
-                    log.info("Folder not exist. Creating...");
+                log.info("  Filename ok, checking folder " + targetFolderName);
+                if (!Files.isDirectory(Paths.get(targetFolderName))) {
+                    log.info("  Folder not exist. Creating...");
                     Files.createDirectories(Paths.get(targetFolderName));
                 }
+                Files.move(x, Paths.get(targetFolderName + "/" + x.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+                log.info("  File moved");
             } catch (ParseException pe) {
-                log.log(Level.WARNING, "filename not ok");
+                log.log(Level.WARNING, "Filename wrong.");
             } catch (IOException ioe) {
-                log.log(Level.WARNING, "IO ERROR: "+ioe.getMessage());
+                log.log(Level.SEVERE, "IO ERROR: " + ioe.getMessage(), ioe);
             }
+        } else {
+            log.log(Level.WARNING, "Not found {0} template in file {1}", new Object[]{DATENAMETEMPLATE, x.toString()});
         }
     }
 
-    public List<Path> listFiles() throws IOException {
+    private List<Path> listFiles() throws IOException {
         List<Path> result;
         try (Stream<Path> walk = Files.walk(Paths.get(sourceFolder))) {
             result = walk.filter(Files::isRegularFile)
@@ -85,4 +87,11 @@ public class FileHelper {
         return result;
     }
 
+    public void processFiles() throws IOException {
+        List<Path> paths = listFiles();
+        log.info("Files total: " + paths.size());
+        for (int i = 0; i < paths.size(); i++) {
+            processFile(String.format("%d/%d", i + 1, paths.size()), paths.get(i));
+        }
+    }
 }
