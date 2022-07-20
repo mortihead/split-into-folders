@@ -60,25 +60,31 @@ public class FileHelper {
         if (m.find()) {
             try {
                 tempDate = format.parse(m.group());
-                String targetFolderName = targetFolder + "/" + folderFormat.format(tempDate);
-                log.info("  Filename ok, checking folder " + targetFolderName);
-                if (!Files.isDirectory(Paths.get(targetFolderName))) {
-                    log.info("  Folder not exist. Creating...");
-                    Files.createDirectories(Paths.get(targetFolderName));
-                }
-                Files.move(x, Paths.get(targetFolderName + "/" + x.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-                log.info("  File moved");
+                moveFileInTargetFolder(x, targetFolder + "/" + folderFormat.format(tempDate));
             } catch (ParseException pe) {
                 log.log(Level.WARNING, "Filename wrong.");
-            } catch (IOException ioe) {
-                log.log(Level.SEVERE, "IO ERROR: " + ioe.getMessage(), ioe);
             }
         } else {
-            log.log(Level.WARNING, "Not found {0} template in file {1}", new Object[]{DATENAMETEMPLATE, x.toString()});
+            log.log(Level.WARNING, "Not found {0} template in file {1}. Move file to unsorted folder.", new Object[]{DATENAMETEMPLATE, x.toString()});
+            String targetFolderName = targetFolder + "/unsorted";
+            moveFileInTargetFolder(x, targetFolderName);
         }
     }
 
-    private List<Path> listFiles() throws IOException {
+    private void moveFileInTargetFolder(Path x, String targetFolderName) {
+        try {
+            if (!Files.isDirectory(Paths.get(targetFolderName))) {
+                log.info("  Folder not exist. Creating...");
+                Files.createDirectories(Paths.get(targetFolderName));
+            }
+            Files.move(x, Paths.get(targetFolderName + "/" + x.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+            log.info("  File moved");
+        } catch (IOException ioe) {
+            log.log(Level.SEVERE, "IO ERROR: " + ioe.getMessage(), ioe);
+        }
+    }
+
+    List<Path> listFiles() throws IOException {
         List<Path> result;
         try (Stream<Path> walk = Files.walk(Paths.get(sourceFolder))) {
             result = walk.filter(Files::isRegularFile)
@@ -88,10 +94,29 @@ public class FileHelper {
     }
 
     public void processFiles() throws IOException {
+        log.info("Calc files list...");
         List<Path> paths = listFiles();
         log.info("Files total: " + paths.size());
         for (int i = 0; i < paths.size(); i++) {
             processFile(String.format("%d/%d", i + 1, paths.size()), paths.get(i));
         }
     }
+
+    public String getSourceFolder() {
+        return sourceFolder;
+    }
+
+    public void setSourceFolder(String sourceFolder) {
+        this.sourceFolder = sourceFolder;
+    }
+
+    public String getTargetFolder() {
+        return targetFolder;
+    }
+
+    public void setTargetFolder(String targetFolder) {
+        this.targetFolder = targetFolder;
+    }
+
+
 }
